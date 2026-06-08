@@ -1,0 +1,123 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mobile Sandbox</title>
+<style>
+body{margin:0;overflow:hidden;font-family:sans-serif;touch-action:none}
+#info{position:fixed;top:10px;left:10px;background:#ffffffcc;padding:8px;border-radius:8px;z-index:5}
+.btn{
+position:fixed;width:60px;height:60px;border-radius:50%;
+background:#ffffffaa;text-align:center;line-height:60px;
+font-size:24px;user-select:none;
+}
+#up{left:80px;bottom:140px} #down{left:80px;bottom:20px}
+#left{left:20px;bottom:80px} #right{left:140px;bottom:80px}
+#jump{right:20px;bottom:80px}
+</style>
+</head>
+<body>
+<div id="info">패드/폰 지원 버전<br>왼쪽 버튼 이동 · 오른쪽 화면 드래그 시점</div>
+<div class="btn" id="up">↑</div>
+<div class="btn" id="down">↓</div>
+<div class="btn" id="left">←</div>
+<div class="btn" id="right">→</div>
+<div class="btn" id="jump">J</div>
+
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x87ceeb);
+
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,1000);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff,.8));
+const light=new THREE.DirectionalLight(0xffffff,1);
+light.position.set(10,20,10);
+scene.add(light);
+
+const ground=new THREE.Mesh(
+ new THREE.BoxGeometry(100,1,100),
+ new THREE.MeshStandardMaterial({color:0x55aa55})
+);
+ground.position.y=-0.5;
+scene.add(ground);
+
+const player=new THREE.Mesh(
+ new THREE.BoxGeometry(1,2,1),
+ new THREE.MeshStandardMaterial({color:0x3366ff})
+);
+player.position.y=1;
+scene.add(player);
+
+let yaw=0,pitch=0,vy=0;
+const move={up:false,down:false,left:false,right:false,jump:false};
+
+["up","down","left","right","jump"].forEach(id=>{
+ const el=document.getElementById(id);
+ el.addEventListener("touchstart",e=>{e.preventDefault();move[id]=true;});
+ el.addEventListener("touchend",e=>{e.preventDefault();move[id]=false;});
+});
+
+let dragging=false,lastX=0,lastY=0;
+document.addEventListener("touchstart",e=>{
+ if(e.touches[0].clientX > innerWidth/2){
+   dragging=true;
+   lastX=e.touches[0].clientX;
+   lastY=e.touches[0].clientY;
+ }
+});
+
+document.addEventListener("touchmove",e=>{
+ if(!dragging) return;
+ const t=e.touches[0];
+ yaw -= (t.clientX-lastX)*0.01;
+ pitch -= (t.clientY-lastY)*0.01;
+ pitch=Math.max(-1.2,Math.min(1.2,pitch));
+ lastX=t.clientX;
+ lastY=t.clientY;
+});
+
+document.addEventListener("touchend",()=>dragging=false);
+
+function loop(){
+ requestAnimationFrame(loop);
+
+ let dx=0,dz=0;
+ if(move.up) dz-=1;
+ if(move.down) dz+=1;
+ if(move.left) dx-=1;
+ if(move.right) dx+=1;
+
+ player.position.x += (Math.cos(yaw)*dx + Math.sin(yaw)*dz)*0.12;
+ player.position.z += (-Math.sin(yaw)*dx + Math.cos(yaw)*dz)*0.12;
+
+ if(move.jump && player.position.y<=1.01) vy=.22;
+
+ vy-=.01;
+ player.position.y+=vy;
+ if(player.position.y<1){player.position.y=1;vy=0;}
+
+ const look=new THREE.Vector3(
+   Math.sin(yaw)*Math.cos(pitch),
+   Math.sin(pitch),
+   -Math.cos(yaw)*Math.cos(pitch)
+ );
+
+ camera.position.copy(player.position).add(
+   new THREE.Vector3(-look.x*6,3,-look.z*6)
+ );
+ camera.lookAt(player.position);
+
+ renderer.render(scene,camera);
+}
+loop();
+</script>
+</body>
+</html>
